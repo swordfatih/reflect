@@ -120,6 +120,9 @@ struct statement
 
 Use raw statements for hand-written migrations or backend-specific SQL.
 
+`upsert` uses primary-key conflict handling on backends that support
+`ON CONFLICT`.
+
 ## Introspection
 
 ```cpp

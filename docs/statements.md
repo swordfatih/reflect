@@ -36,6 +36,7 @@ index statements.
 
 ```cpp
 auto insert = reflect::insert_statement(user, model);
+auto upsert = reflect::upsert_statement(user, model);
 auto update = reflect::update_statement(user, model);
 auto select = reflect::select_statement(model);
 auto one = reflect::select_one_statement(model, filter);
@@ -77,5 +78,9 @@ db.query(reflect::statement{
     .binds = {std::int64_t{42}},
 });
 ```
+
+PostgreSQL raw statements can use native `$1`, `$2`, ... placeholders. When a
+PostgreSQL statement contains native placeholders, Reflect does not rewrite `?`
+characters, so backend-specific operators such as JSONB `?` can be used.
 
 Do not concatenate user input into raw SQL.

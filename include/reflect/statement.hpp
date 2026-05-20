@@ -72,6 +72,11 @@ inline void append_orderings(std::string& output, const std::vector<ordering>& o
     }
 }
 
+inline std::string excluded_column_reference(const column_descriptor& column)
+{
+    return "excluded." + quote_identifier(column.name);
+}
+
 template <typename Model>
 inline void append_query_tail(std::string& sql, std::vector<sql_value>& binds, query_options<Model> options, bool include_ordering = true)
 {
@@ -310,6 +315,101 @@ template <typename Model>
 [[nodiscard]] statement insert_statement(const Model& model, dialect target)
 {
     return insert_statement(model, describe_model<Model>(target));
+}
+
+template <typename Model>
+[[nodiscard]] statement upsert_statement(const Model& object, const model_descriptor<Model>& model)
+{
+    const auto primary_key = primary_key_column(model);
+
+    std::vector<column_descriptor> inserted_descriptors;
+    inserted_descriptors.reserve(model.columns.size());
+
+    for(const auto& descriptor: model.columns)
+    {
+        if(!descriptor.generated_on_insert || descriptor.flags.primary_key)
+        {
+            inserted_descriptors.emplace_back(descriptor);
+        }
+    }
+
+    statement output;
+    output.sql = "INSERT INTO ";
+    output.sql.append(detail::quote_identifier(model.table_name));
+
+    if(inserted_descriptors.empty())
+    {
+        output.sql.append(" DEFAULT VALUES");
+    }
+    else
+    {
+        output.sql.append(" (");
+        detail::append_joined_identifiers(output.sql, inserted_descriptors);
+        output.sql.append(") VALUES (");
+        detail::append_placeholders(output.sql, inserted_descriptors.size());
+        output.sql.push_back(')');
+    }
+
+    bool has_update_assignment = false;
+
+    output.sql.append(" ON CONFLICT (");
+    output.sql.append(detail::quote_identifier(primary_key.name));
+    output.sql.append(") DO ");
+
+    for(const auto& descriptor: model.columns)
+    {
+        if(descriptor.flags.primary_key || (descriptor.generated_on_insert && !descriptor.flags.updated_at))
+        {
+            continue;
+        }
+
+        if(!has_update_assignment)
+        {
+            output.sql.append("UPDATE SET ");
+        }
+        else
+        {
+            output.sql.append(", ");
+        }
+
+        has_update_assignment = true;
+        output.sql.append(detail::quote_identifier(descriptor.name));
+
+        if(descriptor.flags.updated_at && !descriptor.on_update_sql.empty())
+        {
+            output.sql.append(" = ");
+            output.sql.append(descriptor.on_update_sql);
+        }
+        else
+        {
+            output.sql.append(" = ");
+            output.sql.append(detail::excluded_column_reference(descriptor));
+        }
+    }
+
+    if(!has_update_assignment)
+    {
+        output.sql.append("NOTHING");
+    }
+
+    std::size_t descriptor_index = 0;
+    meta::for_each_persistent_field<ignore_t>(object, [&](meta::field, const auto& value) {
+        const auto& descriptor = model.columns[descriptor_index];
+        if(!descriptor.generated_on_insert || descriptor.flags.primary_key)
+        {
+            output.binds.emplace_back(detail::to_sql_value(value));
+        }
+
+        ++descriptor_index;
+    });
+
+    return output;
+}
+
+template <typename Model>
+[[nodiscard]] statement upsert_statement(const Model& model, dialect target)
+{
+    return upsert_statement(model, describe_model<Model>(target));
 }
 
 template <typename Model>

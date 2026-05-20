@@ -30,7 +30,7 @@ struct [[= reflect::table{"invoices"}]] Invoice
     [[= reflect::id, = reflect::auto_increment]]
     std::int64_t id = 0;
 
-    [[= reflect::indexed, = reflect::not_null, = reflect::references{"customers", "id", "CASCADE"}]]
+    [[= reflect::indexed, = reflect::not_null, = reflect::references{"customers", "id", "CASCADE", ""}]]
     std::int64_t customer_id = 0;
 
     [[= reflect::not_null, = reflect::decimal{12, 2}]]
@@ -102,7 +102,7 @@ int main()
         .display_name = "Billing Team",
     });
 
-    invoices.insert(Invoice{
+    [[maybe_unused]] const auto invoice = invoices.insert(Invoice{
         .customer_id = customer.last_insert_id,
         .total = 199.95,
         .status = "open",

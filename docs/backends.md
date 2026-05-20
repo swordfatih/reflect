@@ -45,6 +45,8 @@ The PostgreSQL backend:
 
 - converts `?` placeholders into `$1`, `$2`, ... outside quoted SQL text and
   comments
+- leaves SQL with native `$1`, `$2`, ... placeholders unchanged, which is useful
+  for raw PostgreSQL statements that use operators containing `?`
 - supports up to 1024 bound parameters per statement
 - sends scalar parameters as text
 - sends byte vectors as PostgreSQL hex bytea text

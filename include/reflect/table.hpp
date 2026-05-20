@@ -256,13 +256,11 @@ public:
 
     [[nodiscard]] insert_result upsert(const Model& model)
     {
-        const auto updated = update(model);
-        if(updated != 0)
-        {
-            return insert_result{.rows_affected = updated};
-        }
-
-        return insert(model);
+        const auto result = backend_->execute(upsert_statement(model, model_));
+        return insert_result{
+            .rows_affected = result.rows_affected,
+            .last_insert_id = result.last_insert_id,
+        };
     }
 
     [[nodiscard]] std::uint64_t update_many(const Model& patch, condition filter)

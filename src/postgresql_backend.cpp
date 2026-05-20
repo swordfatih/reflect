@@ -70,6 +70,8 @@ struct pg_parameter
     );
 }
 
+} // namespace
+
 [[nodiscard]] std::string postgres_placeholders(std::string_view sql)
 {
     std::string output;
@@ -222,6 +224,11 @@ struct pg_parameter
             auto tag = dollar_tag_at(index);
             if(tag.empty())
             {
+                if(index + 1 < sql.size() && sql[index + 1] >= '1' && sql[index + 1] <= '9')
+                {
+                    return std::string{sql};
+                }
+
                 output.push_back(character);
             }
             else
@@ -240,6 +247,9 @@ struct pg_parameter
 
     return output;
 }
+
+namespace
+{
 
 [[nodiscard]] std::vector<pg_parameter> to_pg_parameters(const std::vector<sql_value>& values)
 {

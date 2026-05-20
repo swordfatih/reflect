@@ -168,7 +168,7 @@ int main()
         .metadata_json = R"({"tags":["orm","cpp","reflection"],"readingMinutes":6})",
     });
 
-    comments.insert_many({
+    [[maybe_unused]] const auto inserted_comments = comments.insert_many({
         Comment{.post_id = post.last_insert_id, .author_id = ada.last_insert_id, .body = "First approved comment.", .approved = true},
         Comment{.post_id = post.last_insert_id, .author_id = ada.last_insert_id, .body = "Needs moderation.", .approved = false},
     });
@@ -202,7 +202,7 @@ int main()
     if(auto existing = users.find(ada.last_insert_id))
     {
         existing->display_name = "Ada Lovelace";
-        users.update(*existing);
+        [[maybe_unused]] const auto updated_users = users.update(*existing);
     }
 
     if(auto saved_account = accounts.find(account.last_insert_id))
