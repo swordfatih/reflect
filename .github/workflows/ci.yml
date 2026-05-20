@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [main, ci]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-ubuntu-gcc16:
+    name: Ubuntu GCC 16
+    runs-on: ubuntu-latest
+    container: ubuntu:26.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Install checkout dependencies
+        run: |
+          apt-get update
+          apt-get install --no-install-recommends -y \
+            ca-certificates \
+            git
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
+            cmake \
+            g++-16 \
+            gcc-16 \
+            libpq-dev \
+            libsqlite3-dev \
+            ninja-build \
+            pkg-config
+
+      - name: Toolchain versions
+        env:
+          CC: gcc-16
+          CXX: g++-16
+        run: |
+          cmake --version
+          ninja --version
+          "$CC" --version
+          "$CXX" --version
+          pg_config --version
+
+          "$CXX" -dumpfullversion -dumpversion | grep -E '^16\.'
+
+      - name: Configure
+        env:
+          CC: gcc-16
+          CXX: g++-16
+        run: >
+          cmake -S . -B build
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_EXAMPLES=OFF
+          -DBUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build --build-config Release --output-on-failure
+
+  test-windows-gcc16:
+    name: Windows GCC 16 UCRT64
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+          pacboy: >-
+            gcc:p
+            cmake:p
+            ninja:p
+            pkgconf:p
+            postgresql:p
+            sqlite3:p
+
+      - name: Toolchain versions
+        shell: msys2 {0}
+        run: |
+          cmake --version
+          ninja --version
+          gcc --version
+          g++ --version
+          pg_config --version
+
+          g++ -dumpfullversion -dumpversion | grep -E '^16\.'
+
+      - name: Configure
+        shell: msys2 {0}
+        run: >
+          cmake -S . -B build
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_EXAMPLES=OFF
+          -DBUILD_TESTS=ON
+          -DCMAKE_C_COMPILER=gcc
+          -DCMAKE_CXX_COMPILER=g++
+
+      - name: Build
+        shell: msys2 {0}
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        shell: msys2 {0}
+        run: ctest --test-dir build --build-config Release --output-on-failure
