@@ -65,8 +65,8 @@ jobs:
           cmake -S . -B build
           -G Ninja
           -DCMAKE_BUILD_TYPE=Release
-          -DBUILD_EXAMPLES=OFF
-          -DBUILD_TESTS=ON
+          -DREFLECT_BUILD_EXAMPLES=ON
+          -DREFLECT_BUILD_TESTS=ON
 
       - name: Build
         run: cmake --build build --config Release --parallel
@@ -115,8 +115,8 @@ jobs:
           cmake -S . -B build
           -G Ninja
           -DCMAKE_BUILD_TYPE=Release
-          -DBUILD_EXAMPLES=OFF
-          -DBUILD_TESTS=ON
+          -DREFLECT_BUILD_EXAMPLES=ON
+          -DREFLECT_BUILD_TESTS=ON
           -DCMAKE_C_COMPILER=gcc
           -DCMAKE_CXX_COMPILER=g++
 

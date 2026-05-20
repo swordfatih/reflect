@@ -12,10 +12,40 @@ Reflect requires a compiler with C++26 static reflection support and the
 ## Build
 
 ```bash
-cmake -S . -B build
+cmake -S . -B build -DREFLECT_BUILD_TESTS=ON -DREFLECT_BUILD_EXAMPLES=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
+
+Tests and examples are off by default so Reflect can be consumed by another
+CMake project without building development targets.
+
+## Consume With FetchContent
+
+```cmake
+cmake_minimum_required(VERSION 3.30)
+
+project(my_app LANGUAGES CXX)
+
+include(FetchContent)
+
+FetchContent_Declare(
+    reflect
+    GIT_REPOSITORY https://github.com/swordfatih/reflect.git
+    GIT_TAG main
+)
+
+set(REFLECT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(REFLECT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(reflect)
+
+add_executable(my_app main.cpp)
+target_link_libraries(my_app PRIVATE reflect::reflect)
+```
+
+Reflect requires C++26 static reflection support. The `reflect::reflect` target
+adds the required `-freflection` compile option to consumers.
 
 ## Connect
 

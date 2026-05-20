@@ -2,11 +2,11 @@ cmake_minimum_required(VERSION 3.30)
 
 project(reflect LANGUAGES CXX)
 
-option(BUILD_EXAMPLES "Build all example executables" ON)
-option(BUILD_TESTS "Build the test executable" ON)
+option(REFLECT_BUILD_EXAMPLES "Build all example executables" OFF)
+option(REFLECT_BUILD_TESTS "Build the test executable" OFF)
 
 include(FetchContent)
-if(BUILD_TESTS)
+if(REFLECT_BUILD_TESTS)
     include(CTest)
     enable_testing()
 endif()
@@ -28,7 +28,7 @@ set(sl3_USE_COMMON_COMPILER_WARNINGS OFF CACHE BOOL "Use common compiler warning
 FetchContent_MakeAvailable(sl3)
 
 FetchContent_Declare(Catch2 GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v3.14.0 GIT_SHALLOW TRUE)
-if(BUILD_TESTS)
+if(REFLECT_BUILD_TESTS)
     FetchContent_MakeAvailable(Catch2)
 endif()
 
@@ -58,7 +58,7 @@ target_compile_options(${PROJECT_NAME}
 # ------------------------
 # Examples
 # ------------------------
-if(BUILD_EXAMPLES)
+if(REFLECT_BUILD_EXAMPLES)
     FetchContent_Declare(spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v1.x GIT_SHALLOW TRUE)
     FetchContent_MakeAvailable(spdlog)
 
@@ -79,7 +79,7 @@ endif()
 # ------------------------
 # Tests
 # ------------------------
-if(BUILD_TESTS)
+if(REFLECT_BUILD_TESTS)
     file(GLOB_RECURSE test_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp")
 
     if(test_sources)
