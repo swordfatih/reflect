@@ -24,8 +24,10 @@ TEST_CASE("insert skips generated columns and update touches updated_at", "[stat
     };
 
     const auto update = reflect::update_statement(existing, model);
+    REQUIRE(update.sql.find("\"created_at\"") == std::string::npos);
     REQUIRE(update.sql.find("\"updated_at\" = CURRENT_TIMESTAMP") != std::string::npos);
     REQUIRE(update.sql.find("WHERE \"id\" = ?") != std::string::npos);
+    REQUIRE(update.binds.size() == 3);
 }
 
 TEST_CASE("update_many emits guarded set clauses", "[statement]")
@@ -43,6 +45,8 @@ TEST_CASE("update_many emits guarded set clauses", "[statement]")
     );
 
     REQUIRE(update.sql.find("UPDATE \"users\" SET") != std::string::npos);
+    REQUIRE(update.sql.find("\"created_at\"") == std::string::npos);
     REQUIRE(update.sql.find("WHERE \"email\" LIKE ?") != std::string::npos);
     REQUIRE(update.sql.find("\"updated_at\" = CURRENT_TIMESTAMP") != std::string::npos);
+    REQUIRE(update.binds.size() == 3);
 }

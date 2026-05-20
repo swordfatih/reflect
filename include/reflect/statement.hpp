@@ -336,6 +336,12 @@ template <typename Model>
             return;
         }
 
+        if(descriptor.generated_on_insert && !descriptor.flags.updated_at)
+        {
+            ++descriptor_index;
+            return;
+        }
+
         if(descriptor.flags.updated_at && !descriptor.on_update_sql.empty())
         {
             if(!first)

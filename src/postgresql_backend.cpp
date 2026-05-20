@@ -3,6 +3,9 @@
 #include <reflect/statement.hpp>
 
 #include <tao/pq.hpp>
+#include <tao/pq/binary.hpp>
+#include <tao/pq/oid.hpp>
+#include <tao/pq/result_traits.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -331,6 +334,16 @@ void bind_parameters(tao::pq::parameter<Max>& parameters, const std::vector<pg_p
 
 } // namespace
 
+[[nodiscard]] sql_value postgresql_text_value_to_sql_value(const char* value, Oid type_oid)
+{
+    if(type_oid == static_cast<Oid>(tao::pq::oid::bytea))
+    {
+        return tao::pq::result_traits<tao::pq::binary>::from(value);
+    }
+
+    return std::string{value};
+}
+
 class postgresql_backend final : public backend
 {
 public:
@@ -376,6 +389,7 @@ public:
 
             std::vector<row> rows;
             rows.reserve(result.size());
+            const auto* raw_result = result.underlying_raw_ptr();
 
             for(const auto& pg_row: result)
             {
@@ -391,7 +405,11 @@ public:
                     }
                     else
                     {
-                        output.emplace_back(std::string{field.get()});
+                        const auto column = static_cast<int>(index);
+                        output.emplace_back(postgresql_text_value_to_sql_value(
+                            field.get(),
+                            PQftype(raw_result, column)
+                        ));
                     }
                 }
 
