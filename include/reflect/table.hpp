@@ -1,8 +1,10 @@
 #pragma once
 
 #include <reflect/detail/backend.hpp>
+#include <reflect/mapper.hpp>
 #include <reflect/migration.hpp>
 #include <reflect/query.hpp>
+#include <reflect/schema_validation.hpp>
 #include <reflect/statement.hpp>
 
 #include <cstdint>
@@ -20,6 +22,13 @@ struct insert_result
 {
     std::uint64_t rows_affected = 0;
     std::int64_t  last_insert_id = 0;
+};
+
+struct schema_sync_options
+{
+    bool                      validate_after = true;
+    bool                      force = false;
+    schema_validation_options validation{};
 };
 
 template <typename Model>
@@ -45,12 +54,56 @@ public:
 
     void migrate()
     {
+        migrate(schema_sync_options{});
+    }
+
+    void migrate(schema_sync_options options)
+    {
         const auto plan = plan_migration(model_, backend_->table_columns(model_.table_name));
 
-        for(const auto& ddl: plan.statements)
+        if(options.force)
         {
-            backend_->execute(ddl);
+            const auto current_schema = backend_->inspect_table(model_.table_name);
+            if(!current_schema.exists())
+            {
+                apply_schema_statements(create_schema_statements(model_));
+            }
+            else
+            {
+                const auto validation = reflect::validate_schema(model_, current_schema, options.validation);
+                if(!validation.valid())
+                {
+                    reset_schema();
+                }
+            }
         }
+        else
+        {
+            for(const auto& ddl: plan.statements)
+            {
+                backend_->execute(ddl);
+            }
+        }
+
+        if(options.validate_after)
+        {
+            require_schema(options.validation);
+        }
+    }
+
+    void migrate_force(schema_validation_options validation = {})
+    {
+        migrate(schema_sync_options{
+            .validate_after = true,
+            .force = true,
+            .validation = std::move(validation),
+        });
+    }
+
+    void reset_schema()
+    {
+        backend_->execute(drop_table(model_));
+        apply_schema_statements(create_schema_statements(model_));
     }
 
     void migrate_versioned(std::string_view id)
@@ -60,6 +113,7 @@ public:
             .id = std::string{id},
             .statements = plan.statements,
         });
+        require_schema();
     }
 
     void migrate_versioned()
@@ -70,6 +124,16 @@ public:
     void sync_schema()
     {
         migrate();
+    }
+
+    [[nodiscard]] schema_validation_result validate_schema(schema_validation_options options = {})
+    {
+        return reflect::validate_schema(model_, backend_->inspect_table(model_.table_name), std::move(options));
+    }
+
+    void require_schema(schema_validation_options options = {})
+    {
+        reflect::require_schema(model_, backend_->inspect_table(model_.table_name), std::move(options));
     }
 
     [[nodiscard]] insert_result insert(const Model& model)
@@ -257,6 +321,14 @@ public:
     }
 
 private:
+    void apply_schema_statements(const std::vector<statement>& statements)
+    {
+        for(const auto& ddl: statements)
+        {
+            backend_->execute(ddl);
+        }
+    }
+
     [[nodiscard]] static std::vector<Model> materialize_many(const std::vector<detail::row>& rows)
     {
         std::vector<Model> output;

@@ -11,6 +11,12 @@ if(BUILD_TESTS)
     enable_testing()
 endif()
 
+function(reflect_link_static_runtime target_name)
+    if(MINGW)
+        target_link_options(${target_name} PRIVATE -static -static-libgcc -static-libstdc++)
+    endif()
+endfunction()
+
 # ------------------------
 # Dependencies
 # ------------------------
@@ -20,9 +26,6 @@ FetchContent_MakeAvailable(taocpp-taopq)
 FetchContent_Declare(sl3 GIT_REPOSITORY https://github.com/a4z/libsl3.git GIT_TAG main OVERRIDE_FIND_PACKAGE)
 set(sl3_USE_COMMON_COMPILER_WARNINGS OFF CACHE BOOL "Use common compiler warning preset target" FORCE)
 FetchContent_MakeAvailable(sl3)
-
-FetchContent_Declare(spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v1.x GIT_SHALLOW TRUE)
-FetchContent_MakeAvailable(spdlog)
 
 FetchContent_Declare(Catch2 GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v3.14.0 GIT_SHALLOW TRUE)
 if(BUILD_TESTS)
@@ -41,12 +44,24 @@ target_sources(${PROJECT_NAME} PRIVATE ${cpp_sources})
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_26)
 target_include_directories(${PROJECT_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
 target_link_libraries(${PROJECT_NAME} PRIVATE taocpp::taopq sl3)
-target_compile_options(${PROJECT_NAME} PUBLIC -freflection PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-but-set-variable -Wno-unused-parameter)
+target_compile_options(${PROJECT_NAME}
+    PUBLIC
+        -freflection
+    PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+        -Wno-unused-but-set-variable
+        -Wno-unused-parameter
+)
 
 # ------------------------
 # Examples
 # ------------------------
 if(BUILD_EXAMPLES)
+    FetchContent_Declare(spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v1.x GIT_SHALLOW TRUE)
+    FetchContent_MakeAvailable(spdlog)
+
     file(GLOB example_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/*.cpp")
 
     foreach(example_source IN LISTS example_sources)
@@ -56,9 +71,8 @@ if(BUILD_EXAMPLES)
         add_executable(${example_target} "${example_source}")
         set_target_properties(${example_target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/runtime")
         target_link_libraries(${example_target} PRIVATE reflect::reflect spdlog::spdlog)
-        target_link_options(${example_target} PRIVATE -static -static-libgcc -static-libstdc++)
+        reflect_link_static_runtime(${example_target})
         target_compile_options(${example_target} PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-but-set-variable -Wno-unused-parameter)
-        target_compile_options(${PROJECT_NAME} PRIVATE -O1)
     endforeach()
 endif()
 
@@ -72,6 +86,7 @@ if(BUILD_TESTS)
         add_executable(${PROJECT_NAME}_tests ${test_sources})
         set_target_properties(${PROJECT_NAME}_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/runtime")
         target_link_libraries(${PROJECT_NAME}_tests PRIVATE reflect::reflect Catch2::Catch2WithMain)
+        reflect_link_static_runtime(${PROJECT_NAME}_tests)
         target_compile_options(${PROJECT_NAME}_tests PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-but-set-variable -Wno-unused-parameter)
         include(${catch2_SOURCE_DIR}/extras/Catch.cmake)
         catch_discover_tests(${PROJECT_NAME}_tests)

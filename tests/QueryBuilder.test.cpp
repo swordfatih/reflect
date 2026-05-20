@@ -2,6 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <optional>
 #include <string>
 
 TEST_CASE("query builder emits filtering sorting and pagination", "[query]")
@@ -31,6 +32,17 @@ TEST_CASE("field predicates support in and between", "[query]")
     const auto between_filter = reflect::where(&reflect::test::User::id).between(10, 20);
     REQUIRE(between_filter.sql == "\"id\" BETWEEN ? AND ?");
     REQUIRE(between_filter.binds.size() == 2);
+}
+
+TEST_CASE("field predicates use SQL null semantics", "[query]")
+{
+    const auto is_null = reflect::where(&reflect::test::User::email).eq(std::optional<std::string>{});
+    REQUIRE(is_null.sql == "\"email\" IS NULL");
+    REQUIRE(is_null.binds.empty());
+
+    const auto is_not_null = reflect::where(&reflect::test::User::email).ne(std::optional<std::string>{});
+    REQUIRE(is_not_null.sql == "\"email\" IS NOT NULL");
+    REQUIRE(is_not_null.binds.empty());
 }
 
 TEST_CASE("count and exists statements use compact SQL", "[query]")

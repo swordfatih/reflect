@@ -109,6 +109,8 @@ public:
     explicit sqlite_backend(std::string path)
         : database_{std::move(path)}
     {
+        execute(statement{.sql = "PRAGMA foreign_keys = ON"});
+        execute(statement{.sql = "PRAGMA busy_timeout = 5000"});
     }
 
     [[nodiscard]] dialect target_dialect() const noexcept override

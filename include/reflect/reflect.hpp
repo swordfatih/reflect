@@ -5,9 +5,11 @@
 #include <reflect/dialect.hpp>
 #include <reflect/error.hpp>
 #include <reflect/introspection.hpp>
+#include <reflect/mapper.hpp>
 #include <reflect/meta.hpp>
 #include <reflect/migration.hpp>
 #include <reflect/query.hpp>
 #include <reflect/schema.hpp>
+#include <reflect/schema_validation.hpp>
 #include <reflect/statement.hpp>
 #include <reflect/value.hpp>

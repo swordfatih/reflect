@@ -1,0 +1,29 @@
+title: reflect
+description: C++26 reflection-first ORM documentation
+remote_theme: just-the-docs/just-the-docs
+
+url: "https://swordfatih.github.io"
+baseurl: "/reflect"
+
+permalink: pretty
+search_enabled: true
+heading_anchors: true
+color_scheme: light
+
+aux_links:
+  "reflect on GitHub":
+    - "https://github.com/swordfatih/reflect"
+
+callouts:
+  warning:
+    title: Warning
+    color: red
+  note:
+    title: Note
+    color: blue
+  important:
+    title: Important
+    color: yellow
+
+plugins:
+  - jekyll-remote-theme

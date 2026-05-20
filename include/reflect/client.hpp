@@ -4,6 +4,7 @@
 #include <reflect/error.hpp>
 #include <reflect/introspection.hpp>
 #include <reflect/query.hpp>
+#include <reflect/schema_validation.hpp>
 #include <reflect/statement.hpp>
 #include <reflect/table.hpp>
 
@@ -59,6 +60,15 @@ public:
         begin_transaction(nested, savepoint);
         ++transaction_depth_;
         bool active = true;
+        bool depth_released = false;
+
+        const auto release_depth = [&]() noexcept {
+            if(!depth_released)
+            {
+                --transaction_depth_;
+                depth_released = true;
+            }
+        };
 
         try
         {
@@ -79,9 +89,9 @@ public:
                     std::invoke(function);
                 }
 
-                --transaction_depth_;
-                active = false;
+                release_depth();
                 commit_transaction(nested, savepoint);
+                active = false;
             }
             else
             {
@@ -95,9 +105,10 @@ public:
                         return std::invoke(function);
                     }
                 }();
-                --transaction_depth_;
-                active = false;
+
+                release_depth();
                 commit_transaction(nested, savepoint);
+                active = false;
                 return result;
             }
         }
@@ -105,7 +116,7 @@ public:
         {
             if(active)
             {
-                --transaction_depth_;
+                release_depth();
                 rollback_transaction(nested, savepoint);
             }
 
@@ -126,26 +137,75 @@ public:
     }
 
     template <typename Model>
+    void migrate(schema_sync_options options)
+    {
+        this->template table<Model>().migrate(std::move(options));
+    }
+
+    template <typename Model>
+    void migrate_force(schema_validation_options validation = {})
+    {
+        this->template table<Model>().migrate_force(std::move(validation));
+    }
+
+    template <typename Model>
+    void reset_schema()
+    {
+        this->template table<Model>().reset_schema();
+    }
+
+    template <typename Model>
     void migrate_versioned(std::string_view id)
     {
-        this->template table<Model>().migrate_versioned(id);
+        auto model = describe_model<Model>(backend_->target_dialect());
+        auto plan = plan_migration(model, backend_->table_columns(model.table_name));
+        reflect::apply_migration(*backend_, migration{
+            .id = std::string{id},
+            .statements = std::move(plan.statements),
+            .transactional = transaction_depth_ == 0,
+        });
+        reflect::require_schema(model, backend_->inspect_table(model.table_name));
     }
 
     template <typename Model>
     void migrate_versioned()
     {
-        this->template table<Model>().migrate_versioned();
+        migrate_versioned<Model>(table_name<Model>() + "_schema");
     }
 
     void apply_migrations(const std::vector<migration>& migrations)
     {
-        reflect::apply_migrations(*backend_, migrations);
+        if(transaction_depth_ == 0)
+        {
+            reflect::apply_migrations(*backend_, migrations);
+            return;
+        }
+
+        auto nested_migrations = migrations;
+        for(auto& current: nested_migrations)
+        {
+            current.transactional = false;
+        }
+
+        reflect::apply_migrations(*backend_, nested_migrations);
     }
 
     template <typename Model>
     void sync_schema()
     {
         this->template table<Model>().sync_schema();
+    }
+
+    template <typename Model>
+    [[nodiscard]] schema_validation_result validate_schema(schema_validation_options options = {})
+    {
+        return this->template table<Model>().validate_schema(std::move(options));
+    }
+
+    template <typename Model>
+    void require_schema(schema_validation_options options = {})
+    {
+        this->template table<Model>().require_schema(std::move(options));
     }
 
     template <typename Model>

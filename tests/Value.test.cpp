@@ -3,6 +3,9 @@
 #include <reflect/reflect.hpp>
 
 #include <chrono>
+#include <cstdint>
+#include <limits>
+#include <stdexcept>
 #include <string>
 #include <variant>
 
@@ -27,4 +30,16 @@ TEST_CASE("annotation text is structural and viewable", "[annotations]")
     constexpr reflect::table table{"users"};
     static_assert(table.name.view() == "users");
     REQUIRE(table.name.view() == "users");
+}
+
+TEST_CASE("materialization checks narrow integer overflow", "[value]")
+{
+    std::int8_t output = 0;
+    REQUIRE_THROWS_AS(
+        reflect::detail::assign_sql_value(
+            reflect::sql_value{static_cast<std::int64_t>(std::numeric_limits<std::int8_t>::max()) + 1},
+            output
+        ),
+        std::overflow_error
+    );
 }

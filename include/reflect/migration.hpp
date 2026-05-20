@@ -31,6 +31,7 @@ struct migration
 {
     std::string            id;
     std::vector<statement> statements;
+    bool                   transactional = true;
 };
 
 template <typename Model>
@@ -83,6 +84,27 @@ inline statement record_migration_statement(std::string_view id)
     };
 }
 
+namespace detail
+{
+
+inline void execute_control_statement(backend& backend, std::string_view sql)
+{
+    backend.execute(statement{.sql = std::string{sql}});
+}
+
+inline void rollback_control_statement(backend& backend) noexcept
+{
+    try
+    {
+        execute_control_statement(backend, "ROLLBACK");
+    }
+    catch(...)
+    {
+    }
+}
+
+} // namespace detail
+
 inline std::set<std::string> applied_migration_ids(detail::backend& backend)
 {
     backend.execute(create_migration_table_statement());
@@ -116,17 +138,39 @@ inline void apply_migration(detail::backend& backend, const migration& input)
         return;
     }
 
-    try
-    {
+    const auto run_migration_body = [&]() {
         for(const auto& migration_statement: input.statements)
         {
             backend.execute(migration_statement);
         }
 
         backend.execute(record_migration_statement(input.id));
+    };
+
+    bool transaction_started = false;
+
+    try
+    {
+        if(input.transactional)
+        {
+            detail::execute_control_statement(backend, "BEGIN");
+            transaction_started = true;
+            run_migration_body();
+            detail::execute_control_statement(backend, "COMMIT");
+            transaction_started = false;
+        }
+        else
+        {
+            run_migration_body();
+        }
     }
     catch(const std::exception& error)
     {
+        if(transaction_started)
+        {
+            detail::rollback_control_statement(backend);
+        }
+
         throw migration_error{"reflect migration `" + input.id + "` failed: " + error.what()};
     }
 }

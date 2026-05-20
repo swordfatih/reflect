@@ -190,13 +190,25 @@ public:
     template <typename Value>
     [[nodiscard]] condition eq(Value&& value) const
     {
-        return detail::binary_condition(column_, "=", detail::to_sql_value(std::forward<Value>(value)));
+        auto bind = detail::to_sql_value(std::forward<Value>(value));
+        if(detail::is_null(bind))
+        {
+            return detail::null_condition(column_, true);
+        }
+
+        return detail::binary_condition(column_, "=", std::move(bind));
     }
 
     template <typename Value>
     [[nodiscard]] condition ne(Value&& value) const
     {
-        return detail::binary_condition(column_, "<>", detail::to_sql_value(std::forward<Value>(value)));
+        auto bind = detail::to_sql_value(std::forward<Value>(value));
+        if(detail::is_null(bind))
+        {
+            return detail::null_condition(column_, false);
+        }
+
+        return detail::binary_condition(column_, "<>", std::move(bind));
     }
 
     template <typename Value>

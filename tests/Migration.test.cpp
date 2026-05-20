@@ -38,3 +38,13 @@ TEST_CASE("versioned migration metadata has stable table contract", "[migration]
     REQUIRE(record.sql.find("INSERT INTO \"reflect_schema_migrations\"") != std::string::npos);
     REQUIRE(record.binds.size() == 1);
 }
+
+TEST_CASE("migrations are transactional by default", "[migration]")
+{
+    const reflect::migration migration{
+        .id = "001_initial",
+        .statements = {},
+    };
+
+    REQUIRE(migration.transactional);
+}

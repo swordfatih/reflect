@@ -508,6 +508,33 @@ inline bool value_to_bool(const sql_value& value)
     return value_to_i64(value) != 0;
 }
 
+template <typename Output>
+[[nodiscard]] Output checked_signed_integral_cast(std::int64_t value)
+{
+    static_assert(std::signed_integral<Output>);
+
+    if(value < static_cast<std::int64_t>(std::numeric_limits<Output>::min()) ||
+       value > static_cast<std::int64_t>(std::numeric_limits<Output>::max()))
+    {
+        throw std::overflow_error{"reflect ORM integer value does not fit in the destination signed field"};
+    }
+
+    return static_cast<Output>(value);
+}
+
+template <typename Output>
+[[nodiscard]] Output checked_unsigned_integral_cast(std::uint64_t value)
+{
+    static_assert(std::unsigned_integral<Output>);
+
+    if(value > static_cast<std::uint64_t>(std::numeric_limits<Output>::max()))
+    {
+        throw std::overflow_error{"reflect ORM integer value does not fit in the destination unsigned field"};
+    }
+
+    return static_cast<Output>(value);
+}
+
 template <typename Type>
 void assign_sql_value(const sql_value& value, Type& output)
 {
@@ -539,11 +566,11 @@ void assign_sql_value(const sql_value& value, Type& output)
     }
     else if constexpr(std::signed_integral<output_type>)
     {
-        output = static_cast<output_type>(value_to_i64(value));
+        output = checked_signed_integral_cast<output_type>(value_to_i64(value));
     }
     else if constexpr(std::unsigned_integral<output_type>)
     {
-        output = static_cast<output_type>(value_to_u64(value));
+        output = checked_unsigned_integral_cast<output_type>(value_to_u64(value));
     }
     else if constexpr(std::floating_point<output_type>)
     {

@@ -166,57 +166,6 @@ inline std::string column_definition(const column_descriptor& column, dialect ta
     return output;
 }
 
-template <typename Model>
-[[nodiscard]] Model materialize_row(const std::vector<sql_value>& row)
-{
-    Model       model{};
-    std::size_t index = 0;
-
-    meta::for_each_persistent_field<ignore_t>(model, [&](meta::field reflected_field, auto& value) {
-        if(index >= row.size())
-        {
-            throw std::runtime_error{"reflect ORM result row has fewer columns than the model schema"};
-        }
-
-        try
-        {
-            assign_sql_value(row[index], value);
-        }
-        catch(const std::exception& error)
-        {
-            throw std::runtime_error{"reflect ORM failed to read column `" + std::string{reflected_field.name} + "`: " + error.what()};
-        }
-
-        ++index;
-    });
-
-    return model;
-}
-
-template <typename Model>
-[[nodiscard]] sql_value primary_key_value(const Model& object, const model_descriptor<Model>& model)
-{
-    std::size_t descriptor_index = 0;
-    std::optional<sql_value> output;
-
-    meta::for_each_persistent_field<ignore_t>(object, [&](meta::field, const auto& value) {
-        const auto& descriptor = model.columns[descriptor_index];
-        if(descriptor.flags.primary_key)
-        {
-            output = to_sql_value(value);
-        }
-
-        ++descriptor_index;
-    });
-
-    if(!output)
-    {
-        throw std::logic_error{"reflect ORM failed to read primary key value from model"};
-    }
-
-    return std::move(*output);
-}
-
 } // namespace detail
 
 template <typename Model>
@@ -245,6 +194,21 @@ template <typename Model>
 [[nodiscard]] statement create_table(dialect target)
 {
     return create_table(describe_model<Model>(target));
+}
+
+template <typename Model>
+[[nodiscard]] statement drop_table(const model_descriptor<Model>& model)
+{
+    statement output;
+    output.sql = "DROP TABLE IF EXISTS ";
+    output.sql.append(detail::quote_identifier(model.table_name));
+    return output;
+}
+
+template <typename Model>
+[[nodiscard]] statement drop_table(dialect target)
+{
+    return drop_table(describe_model<Model>(target));
 }
 
 template <typename Model>

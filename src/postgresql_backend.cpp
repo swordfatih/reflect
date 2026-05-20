@@ -17,6 +17,8 @@ namespace reflect::detail
 namespace
 {
 
+constexpr std::size_t max_pg_parameters = 1024;
+
 struct pg_parameter
 {
     bool        null = false;
@@ -70,13 +72,162 @@ struct pg_parameter
     std::string output;
     output.reserve(sql.size());
 
-    std::size_t index = 1;
-    for(const char character: sql)
+    enum class state
     {
+        normal,
+        single_quoted,
+        double_quoted,
+        line_comment,
+        block_comment,
+        dollar_quoted,
+    };
+
+    const auto is_dollar_tag_character = [](char character) {
+        return (character >= 'A' && character <= 'Z') ||
+               (character >= 'a' && character <= 'z') ||
+               (character >= '0' && character <= '9') ||
+               character == '_';
+    };
+
+    const auto dollar_tag_at = [&](std::size_t position) -> std::string {
+        if(sql[position] != '$')
+        {
+            return {};
+        }
+
+        std::size_t end = position + 1;
+        while(end < sql.size() && is_dollar_tag_character(sql[end]))
+        {
+            ++end;
+        }
+
+        if(end < sql.size() && sql[end] == '$')
+        {
+            return std::string{sql.substr(position, end - position + 1)};
+        }
+
+        return {};
+    };
+
+    std::size_t placeholder_index = 1;
+    state       parser_state = state::normal;
+    std::string dollar_tag;
+
+    for(std::size_t index = 0; index < sql.size(); ++index)
+    {
+        const char character = sql[index];
+
+        if(parser_state == state::single_quoted)
+        {
+            output.push_back(character);
+            if(character == '\'' && index + 1 < sql.size() && sql[index + 1] == '\'')
+            {
+                output.push_back(sql[++index]);
+            }
+            else if(character == '\'')
+            {
+                parser_state = state::normal;
+            }
+
+            continue;
+        }
+
+        if(parser_state == state::double_quoted)
+        {
+            output.push_back(character);
+            if(character == '"' && index + 1 < sql.size() && sql[index + 1] == '"')
+            {
+                output.push_back(sql[++index]);
+            }
+            else if(character == '"')
+            {
+                parser_state = state::normal;
+            }
+
+            continue;
+        }
+
+        if(parser_state == state::line_comment)
+        {
+            output.push_back(character);
+            if(character == '\n')
+            {
+                parser_state = state::normal;
+            }
+
+            continue;
+        }
+
+        if(parser_state == state::block_comment)
+        {
+            output.push_back(character);
+            if(character == '*' && index + 1 < sql.size() && sql[index + 1] == '/')
+            {
+                output.push_back(sql[++index]);
+                parser_state = state::normal;
+            }
+
+            continue;
+        }
+
+        if(parser_state == state::dollar_quoted)
+        {
+            if(sql.substr(index, dollar_tag.size()) == std::string_view{dollar_tag})
+            {
+                output.append(dollar_tag);
+                index += dollar_tag.size() - 1;
+                dollar_tag.clear();
+                parser_state = state::normal;
+            }
+            else
+            {
+                output.push_back(character);
+            }
+
+            continue;
+        }
+
         if(character == '?')
         {
             output.push_back('$');
-            output.append(std::to_string(index++));
+            output.append(std::to_string(placeholder_index++));
+        }
+        else if(character == '\'')
+        {
+            output.push_back(character);
+            parser_state = state::single_quoted;
+        }
+        else if(character == '"')
+        {
+            output.push_back(character);
+            parser_state = state::double_quoted;
+        }
+        else if(character == '-' && index + 1 < sql.size() && sql[index + 1] == '-')
+        {
+            output.push_back(character);
+            output.push_back(sql[++index]);
+            parser_state = state::line_comment;
+        }
+        else if(character == '/' && index + 1 < sql.size() && sql[index + 1] == '*')
+        {
+            output.push_back(character);
+            output.push_back(sql[++index]);
+            parser_state = state::block_comment;
+        }
+        else if(character == '$')
+        {
+            auto tag = dollar_tag_at(index);
+            if(tag.empty())
+            {
+                output.push_back(character);
+            }
+            else
+            {
+                output.append(tag);
+                index += tag.size() - 1;
+                dollar_tag = std::move(tag);
+                parser_state = state::dollar_quoted;
+            }
         }
         else
         {
@@ -169,7 +320,7 @@ void bind_parameters(tao::pq::parameter<Max>& parameters, const std::vector<pg_p
 {
     if(values.size() > Max)
     {
-        throw std::invalid_argument{"reflect PostgreSQL backend supports at most 64 bound parameters per statement"};
+        throw std::invalid_argument{"reflect PostgreSQL backend supports at most 1024 bound parameters per statement"};
     }
 
     for(const auto& value: values)
@@ -199,7 +350,7 @@ public:
         {
             auto sql = postgres_placeholders(input.sql);
             auto parameters = to_pg_parameters(input.binds);
-            tao::pq::parameter<64> bound;
+            tao::pq::parameter<max_pg_parameters> bound;
             bind_parameters(bound, parameters);
             auto result = connection_->execute(sql, bound);
 
@@ -219,7 +370,7 @@ public:
         {
             auto sql = postgres_placeholders(input.sql);
             auto parameters = to_pg_parameters(input.binds);
-            tao::pq::parameter<64> bound;
+            tao::pq::parameter<max_pg_parameters> bound;
             bind_parameters(bound, parameters);
             auto result = connection_->execute(sql, bound);
 
