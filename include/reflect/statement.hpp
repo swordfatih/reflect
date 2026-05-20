@@ -19,8 +19,8 @@ namespace reflect
 
 struct statement
 {
-    std::string            sql;
-    std::vector<sql_value> binds;
+    std::string            sql{};
+    std::vector<sql_value> binds{};
 };
 
 namespace detail
