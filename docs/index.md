@@ -34,6 +34,14 @@ struct [[= reflect::table{"users"}]] User
 - Schema validation and drift reporting.
 - Destructive development reset when you explicitly ask for it.
 
+## Design Principles
+
+- The C++ model is the source of truth.
+- Runtime SQL always uses bound values for generated predicates.
+- Safe migration is conservative; destructive migration is explicit.
+- Validation is separate from migration so production startup can fail fast on
+  drift.
+
 ## Current Status
 
 Reflect is pre-1.0. It is suitable for experiments and early applications, but
@@ -44,5 +52,6 @@ coverage, packaging, and more relation query planning.
 
 1. Read [Getting Started](getting-started/).
 2. Define models with [Model Annotations](models/).
-3. Use [Schema Validation](schema-validation/) before production writes.
-4. Understand [Migrations](migrations/) before changing existing databases.
+3. Learn the [Query API](querying/).
+4. Use [Schema Validation](schema-validation/) before production writes.
+5. Understand [Migrations](migrations/) before changing existing databases.

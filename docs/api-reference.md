@@ -1,7 +1,7 @@
 ---
 layout: default
 title: API Reference
-nav_order: 7
+nav_order: 11
 ---
 
 # API Reference
@@ -14,37 +14,56 @@ are clearly `reflect::`.
 ```cpp
 client(std::string_view uri);
 
-target_dialect();
-inspect_table(std::string_view table);
-inspect<Model>();
+[[nodiscard]] dialect target_dialect() const noexcept;
+[[nodiscard]] table_info inspect_table(std::string_view table);
+template <typename Model> [[nodiscard]] table_info inspect();
 
-transaction(function);
-table<Model>();
+template <typename Function> decltype(auto) transaction(Function&& function);
+template <typename Model> [[nodiscard]] table_client<Model> table();
 
-migrate<Model>();
-migrate<Model>(schema_sync_options);
-migrate_force<Model>();
-reset_schema<Model>();
-migrate_versioned<Model>(std::string_view id);
-apply_migrations(std::vector<migration>);
+template <typename Model> void migrate();
+template <typename Model> void migrate(schema_sync_options options);
+template <typename Model> void migrate_force(schema_validation_options validation = {});
+template <typename Model> void reset_schema();
+template <typename Model> void migrate_versioned(std::string_view id);
+template <typename Model> void migrate_versioned();
+void apply_migrations(const std::vector<migration>& migrations);
 
-validate_schema<Model>();
-require_schema<Model>();
+template <typename Model> [[nodiscard]] schema_validation_result validate_schema(schema_validation_options options = {});
+template <typename Model> void require_schema(schema_validation_options options = {});
 
-insert<Model>();
-insert_many<Model>();
-find<Model>(id);
-find_one<Model>();
-find_many<Model>();
-update<Model>();
-update_many<Model>();
-delete_many<Model>();
-delete_all<Model>();
-count<Model>();
-exists<Model>();
+template <typename Model> [[nodiscard]] insert_result insert(const Model& model);
+template <typename Model> [[nodiscard]] insert_result create(const Model& model);
+template <typename Model> [[nodiscard]] insert_result insert_many(const std::vector<Model>& models);
+template <typename Model> [[nodiscard]] insert_result create_many(const std::vector<Model>& models);
+template <typename Model> [[nodiscard]] insert_result upsert(const Model& model);
 
-execute(statement);
-query(statement);
+template <typename Model, typename Id> [[nodiscard]] std::optional<Model> find(Id&& id);
+template <typename Model, typename Id> [[nodiscard]] std::optional<Model> find_unique(Id&& id);
+template <typename Model> [[nodiscard]] std::optional<Model> find_one(condition filter = {});
+template <typename Model> [[nodiscard]] std::optional<Model> find_one(query_options<Model> options);
+template <typename Model> [[nodiscard]] std::optional<Model> find_one(const query_builder<Model>& query);
+template <typename Model> [[nodiscard]] std::vector<Model> find_many(condition filter = {});
+template <typename Model> [[nodiscard]] std::vector<Model> find_many(query_options<Model> options);
+template <typename Model> [[nodiscard]] std::vector<Model> find_many(const query_builder<Model>& query);
+
+template <typename Model> [[nodiscard]] std::uint64_t update(const Model& model);
+template <typename Model> [[nodiscard]] std::uint64_t update_many(const Model& patch, condition filter);
+template <typename Model> [[nodiscard]] std::uint64_t update_many(const Model& patch, query_options<Model> options);
+
+template <typename Model> [[nodiscard]] std::uint64_t remove(condition filter);
+template <typename Model> [[nodiscard]] std::uint64_t delete_many(condition filter);
+template <typename Model> [[nodiscard]] std::uint64_t delete_many(query_options<Model> options);
+template <typename Model> [[nodiscard]] std::uint64_t delete_all();
+template <typename Model, typename Id> [[nodiscard]] std::uint64_t remove_by_id(Id&& id);
+
+template <typename Model> [[nodiscard]] std::uint64_t count(condition filter = {});
+template <typename Model> [[nodiscard]] std::uint64_t count(query_options<Model> options);
+template <typename Model> [[nodiscard]] bool exists(condition filter = {});
+template <typename Model> [[nodiscard]] bool exists(query_options<Model> options);
+
+[[nodiscard]] detail::execution_result execute(const statement& input);
+[[nodiscard]] std::vector<detail::row> query(const statement& input);
 ```
 
 ## Table Client
@@ -57,6 +76,8 @@ has_many<Related>(parent, &Related::foreign_key);
 has_one<Related>(parent, &Related::foreign_key);
 belongs_to<Parent>(child, &Model::foreign_key);
 ```
+
+`table_client<Model>::descriptor()` returns the reflected `model_descriptor`.
 
 ## Schema Sync Options
 
@@ -98,3 +119,35 @@ struct statement
 ```
 
 Use raw statements for hand-written migrations or backend-specific SQL.
+
+## Introspection
+
+```cpp
+struct table_info
+{
+    std::string name;
+    std::vector<column_info> columns;
+    std::vector<index_info> indexes;
+    std::vector<foreign_key_info> foreign_keys;
+    bool exists() const noexcept;
+};
+```
+
+## Insert Result
+
+```cpp
+struct insert_result
+{
+    std::uint64_t rows_affected = 0;
+    std::int64_t last_insert_id = 0;
+};
+```
+
+`last_insert_id` is SQLite-oriented. PostgreSQL users should use explicit
+backend-specific returning SQL when needed.
+
+## Query Options Caveat
+
+`query_options<Model>` supports filters, orderings, limit, and offset for
+selects. `count`, `exists`, `update_many`, and `delete_many` currently consume
+only the filter portion.

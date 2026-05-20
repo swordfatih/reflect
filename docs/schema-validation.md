@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Schema Validation
-nav_order: 5
+nav_order: 6
 ---
 
 # Schema Validation
@@ -65,8 +65,41 @@ db.require_schema<User>({
 });
 ```
 
+Use `allow_extra_columns = true` when Reflect models only part of a legacy table.
+
 ## Failure Mode
 
 `require_schema<T>()` throws `reflect::schema_validation_error`. The exception
 contains the full `schema_validation_result`, so callers can log structured
 drift data.
+
+```cpp
+try
+{
+    db.require_schema<User>();
+}
+catch(const reflect::schema_validation_error& error)
+{
+    for(const auto& issue: error.result().issues)
+    {
+        // issue.kind, issue.object_name, issue.expected, issue.actual
+    }
+}
+```
+
+## Issue Kinds
+
+- `missing_table`
+- `missing_column`
+- `extra_column`
+- `type_mismatch`
+- `nullability_mismatch`
+- `primary_key_mismatch`
+- `default_mismatch`
+- `missing_index`
+- `index_uniqueness_mismatch`
+- `missing_foreign_key`
+- `foreign_key_mismatch`
+
+`format_schema_issues(result)` turns the structured result into a readable
+multi-line message.

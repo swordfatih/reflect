@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Querying
-nav_order: 4
+nav_order: 5
 ---
 
 # Querying
@@ -44,14 +44,50 @@ auto users = db.find_many<User>(query);
 
 ```cpp
 db.insert<User>(user);
+db.create<User>(user);
 db.insert_many<User>(users);
+db.create_many<User>(users);
 db.find<User>(id);
+db.find_unique<User>(id);
 db.find_one<User>(reflect::where(&User::email).eq("ada@example.test"));
 db.update<User>(user);
+db.update_many<User>(patch, reflect::where(&User::email).contains("test"));
 db.delete_many<User>(reflect::where(&User::email).contains("test"));
 db.count<User>();
 db.exists<User>(reflect::where(&User::email).eq("ada@example.test"));
 ```
+
+`create` is an alias for `insert`; `create_many` is an alias for `insert_many`;
+`find_unique` is an alias for primary-key `find`.
+
+## Inserts And Generated Columns
+
+Columns marked as generated on insert are omitted from generated `INSERT`
+statements:
+
+- `auto_increment`
+- `created_at`
+- `updated_at`
+
+When a model has only generated insert columns, Reflect emits `DEFAULT VALUES`.
+
+## Updates
+
+`update(model)` updates by primary key and writes every non-primary-key mutable
+column. If a field is marked `updated_at`, Reflect writes the SQL current-time
+expression instead of binding the C++ field value.
+
+`update_many(patch, filter)` currently uses a full model instance as the patch.
+It is not a sparse update object yet, so default-initialized patch fields can be
+written. Use it carefully.
+
+## Deletes
+
+`remove(filter)` and `delete_many(filter)` require a non-empty filter. Use
+`delete_all()` when you intentionally want a full-table delete.
+
+`delete_many(query_options)` currently uses only `options.filter`; ordering,
+limit, and offset are ignored for deletes.
 
 ## Relations
 

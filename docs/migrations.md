@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Migrations
-nav_order: 6
+nav_order: 7
 ---
 
 # Migrations
@@ -43,6 +43,30 @@ db.apply_migrations({
 Applied migration IDs are stored in `reflect_schema_migrations`. Migrations are
 transactional by default.
 
+```cpp
+reflect::migration{
+    .id = "003_non_transactional_maintenance",
+    .statements = {
+        reflect::statement{.sql = "..."},
+    },
+    .transactional = false,
+};
+```
+
+When `apply_migrations` is called inside `client::transaction`, Reflect disables
+the inner migration transaction and lets the outer transaction control commit or
+rollback.
+
+## Versioned Model Sync
+
+```cpp
+db.migrate_versioned<User>("001_users");
+```
+
+This creates the same additive plan as `migrate<User>()`, records the migration
+ID if it ran, and validates the table afterward. If the migration ID is already
+recorded, it skips statements and still validates the table.
+
 ## Destructive Development Reset
 
 Use force mode only for development databases, tests, and demos:
@@ -80,3 +104,20 @@ It is not yet equivalent to TypeORM, Sequelize, Diesel, SeaORM, or SQLx
 migration workflows. Missing pieces include generated migration files, down
 migrations, whole-database drift detection, column rename/drop/type-change
 planning, and CLI-driven migration application.
+
+## Migration Planning API
+
+For tooling, you can build the generated plan without applying it:
+
+```cpp
+auto model = reflect::describe_model<User>(reflect::dialect::sqlite);
+auto plan = reflect::plan_migration(model, existing_column_names);
+
+for(const auto& statement: plan.statements)
+{
+    // inspect statement.sql and statement.binds
+}
+```
+
+`plan_migration` only knows existing column names. Full drift details come from
+schema validation.

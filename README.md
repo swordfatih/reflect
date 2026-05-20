@@ -206,6 +206,11 @@ auto author = db.table<Post>().belongs_to<User>(post, &Post::user_id);
   backend directly, legacy table drift, validation, additive migration, and
   destructive development reset.
 
+## Documentation
+
+The GitHub Pages documentation lives in `docs/` and uses Just the Docs. Start at
+`docs/index.md` or the published project page.
+
 ## Build
 
 ```bash
