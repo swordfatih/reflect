@@ -6,7 +6,8 @@ nav_order: 8
 
 # Backends
 
-Reflect currently ships SQLite and PostgreSQL backends.
+Reflect currently ships SQLite and PostgreSQL backends. SQLite is enabled by
+default. PostgreSQL is opt-in with `REFLECT_ENABLE_POSTGRESQL=ON`.
 
 ## Client URIs
 
@@ -40,6 +41,10 @@ SQLite reports many string-like model types as `TEXT`; schema validation uses
 type-family matching by default to avoid false drift.
 
 ## PostgreSQL
+
+The PostgreSQL backend is disabled by default. Enable it with
+`REFLECT_ENABLE_POSTGRESQL=ON`; it requires the PostgreSQL client library and
+headers (`libpq`) for taocpp/taopq.
 
 The PostgreSQL backend:
 

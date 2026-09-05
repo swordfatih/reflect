@@ -14,33 +14,36 @@ namespace
     return value.substr(0, prefix.size()) == prefix;
 }
 
-[[nodiscard]] std::string sqlite_path_from_uri(std::string_view uri)
-{
-    constexpr std::string_view prefix = "sqlite://";
-    std::string path{uri.substr(prefix.size())};
-
-    if(path.empty())
-    {
-        throw std::invalid_argument{"sqlite URI must include a database path, for example sqlite://app.db or sqlite://:memory:"};
-    }
-
-    return path;
-}
-
 } // namespace
 
 client::client(std::string_view uri)
 {
     if(starts_with(uri, "sqlite://"))
     {
-        backend_ = detail::make_sqlite_backend(sqlite_path_from_uri(uri));
+#if defined(REFLECT_ENABLE_SQLITE)
+        constexpr std::string_view prefix = "sqlite://";
+        std::string path{uri.substr(prefix.size())};
+
+        if(path.empty())
+        {
+            throw std::invalid_argument{"sqlite URI must include a database path, for example sqlite://app.db or sqlite://:memory:"};
+        }
+
+        backend_ = detail::make_sqlite_backend(std::move(path));
         return;
+#else
+        throw std::invalid_argument{"SQLite backend was not enabled when Reflect was built"};
+#endif
     }
 
     if(starts_with(uri, "postgres://") || starts_with(uri, "postgresql://"))
     {
+#if defined(REFLECT_ENABLE_POSTGRESQL)
         backend_ = detail::make_postgresql_backend(std::string{uri});
         return;
+#else
+        throw std::invalid_argument{"PostgreSQL backend was not enabled when Reflect was built"};
+#endif
     }
 
     throw std::invalid_argument{"unsupported reflect ORM URI. Expected sqlite://, postgres://, or postgresql://"};

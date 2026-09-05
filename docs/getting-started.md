@@ -20,6 +20,10 @@ ctest --test-dir build --output-on-failure
 Tests and examples are off by default so Reflect can be consumed by another
 CMake project without building development targets.
 
+The SQLite backend is enabled by default and uses bundled SQLite through libsl3.
+The PostgreSQL backend is disabled by default, so the default build does not
+require PostgreSQL or libpq to be installed.
+
 ## Consume With FetchContent
 
 ```cmake
@@ -44,6 +48,16 @@ add_executable(my_app main.cpp)
 target_link_libraries(my_app PRIVATE reflect::reflect)
 ```
 
+To enable the PostgreSQL backend, set the option before
+`FetchContent_MakeAvailable(reflect)`:
+
+```cmake
+set(REFLECT_ENABLE_POSTGRESQL ON CACHE BOOL "" FORCE)
+```
+
+PostgreSQL support uses taocpp/taopq and requires the PostgreSQL client library
+and headers (`libpq`) to be installed where CMake can find them.
+
 Reflect requires C++26 static reflection support. The `reflect::reflect` target
 adds the required `-freflection` compile option to consumers.
 
@@ -62,7 +76,8 @@ Supported URI prefixes are:
 - `postgresql://`
 
 SQLite accepts `:memory:` and file paths after the prefix. PostgreSQL forwards
-the connection string to the PostgreSQL backend.
+the connection string to the PostgreSQL backend when Reflect is built with
+`REFLECT_ENABLE_POSTGRESQL=ON`.
 
 ## Create Or Sync A Table
 

@@ -67,6 +67,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release
           -DREFLECT_BUILD_EXAMPLES=ON
           -DREFLECT_BUILD_TESTS=ON
+          -DREFLECT_ENABLE_POSTGRESQL=ON
 
       - name: Build
         run: cmake --build build --config Release --parallel
@@ -117,6 +118,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release
           -DREFLECT_BUILD_EXAMPLES=ON
           -DREFLECT_BUILD_TESTS=ON
+          -DREFLECT_ENABLE_POSTGRESQL=ON
           -DCMAKE_C_COMPILER=gcc
           -DCMAKE_CXX_COMPILER=g++
 

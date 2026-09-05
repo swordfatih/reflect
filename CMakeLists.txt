@@ -4,6 +4,8 @@ project(reflect LANGUAGES CXX)
 
 option(REFLECT_BUILD_EXAMPLES "Build all example executables" OFF)
 option(REFLECT_BUILD_TESTS "Build the test executable" OFF)
+option(REFLECT_ENABLE_SQLITE "Build the SQLite backend" ON)
+option(REFLECT_ENABLE_POSTGRESQL "Build the PostgreSQL backend" OFF)
 
 include(FetchContent)
 if(REFLECT_BUILD_TESTS)
@@ -20,12 +22,17 @@ endfunction()
 # ------------------------
 # Dependencies
 # ------------------------
-FetchContent_Declare(taocpp-taopq GIT_REPOSITORY https://github.com/taocpp/taopq.git GIT_TAG main GIT_SHALLOW TRUE EXCLUDE_FROM_ALL SYSTEM)
-FetchContent_MakeAvailable(taocpp-taopq)
+if(REFLECT_ENABLE_POSTGRESQL)
+    FetchContent_Declare(taocpp-taopq GIT_REPOSITORY https://github.com/taocpp/taopq.git GIT_TAG main GIT_SHALLOW TRUE EXCLUDE_FROM_ALL SYSTEM)
+    FetchContent_MakeAvailable(taocpp-taopq)
+endif()
 
-FetchContent_Declare(sl3 GIT_REPOSITORY https://github.com/a4z/libsl3.git GIT_TAG main OVERRIDE_FIND_PACKAGE)
-set(sl3_USE_COMMON_COMPILER_WARNINGS OFF CACHE BOOL "Use common compiler warning preset target" FORCE)
-FetchContent_MakeAvailable(sl3)
+if(REFLECT_ENABLE_SQLITE)
+    FetchContent_Declare(sl3 GIT_REPOSITORY https://github.com/a4z/libsl3.git GIT_TAG 2bd80cd259584d3afa549f3a17ac4d7d35382611 OVERRIDE_FIND_PACKAGE)
+    set(sl3_USE_INTERNAL_SQLITE3 ON CACHE BOOL "Use bundled SQLite" FORCE)
+    set(sl3_USE_COMMON_COMPILER_WARNINGS OFF CACHE BOOL "Use common compiler warning preset target" FORCE)
+    FetchContent_MakeAvailable(sl3)
+endif()
 
 FetchContent_Declare(Catch2 GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v3.14.0 GIT_SHALLOW TRUE)
 if(REFLECT_BUILD_TESTS)
@@ -35,7 +42,15 @@ endif()
 # ------------------------
 # Library
 # ------------------------
-file(GLOB_RECURSE cpp_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+set(cpp_sources "${CMAKE_CURRENT_SOURCE_DIR}/src/reflect.cpp")
+
+if(REFLECT_ENABLE_SQLITE)
+    list(APPEND cpp_sources "${CMAKE_CURRENT_SOURCE_DIR}/src/sqlite_backend.cpp")
+endif()
+
+if(REFLECT_ENABLE_POSTGRESQL)
+    list(APPEND cpp_sources "${CMAKE_CURRENT_SOURCE_DIR}/src/postgresql_backend.cpp")
+endif()
 
 add_library(${PROJECT_NAME} STATIC)
 add_library(reflect::reflect ALIAS ${PROJECT_NAME})
@@ -43,7 +58,14 @@ add_library(reflect::reflect ALIAS ${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE ${cpp_sources})
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_26)
 target_include_directories(${PROJECT_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
-target_link_libraries(${PROJECT_NAME} PRIVATE taocpp::taopq sl3)
+if(REFLECT_ENABLE_SQLITE)
+    target_link_libraries(${PROJECT_NAME} PRIVATE sl3)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE REFLECT_ENABLE_SQLITE)
+endif()
+if(REFLECT_ENABLE_POSTGRESQL)
+    target_link_libraries(${PROJECT_NAME} PRIVATE taocpp::taopq)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE REFLECT_ENABLE_POSTGRESQL)
+endif()
 target_compile_options(${PROJECT_NAME}
     PUBLIC
         -freflection
@@ -59,6 +81,10 @@ target_compile_options(${PROJECT_NAME}
 # Examples
 # ------------------------
 if(REFLECT_BUILD_EXAMPLES)
+    if(NOT REFLECT_ENABLE_SQLITE)
+        message(FATAL_ERROR "REFLECT_BUILD_EXAMPLES requires REFLECT_ENABLE_SQLITE because the current examples use SQLite.")
+    endif()
+
     FetchContent_Declare(spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v1.x GIT_SHALLOW TRUE)
     FetchContent_MakeAvailable(spdlog)
 
@@ -81,6 +107,13 @@ endif()
 # ------------------------
 if(REFLECT_BUILD_TESTS)
     file(GLOB_RECURSE test_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp")
+
+    if(NOT REFLECT_ENABLE_SQLITE)
+        list(REMOVE_ITEM test_sources "${CMAKE_CURRENT_SOURCE_DIR}/tests/SqliteBackend.test.cpp")
+    endif()
+    if(NOT REFLECT_ENABLE_POSTGRESQL)
+        list(REMOVE_ITEM test_sources "${CMAKE_CURRENT_SOURCE_DIR}/tests/PostgresqlBackend.test.cpp")
+    endif()
 
     if(test_sources)
         add_executable(${PROJECT_NAME}_tests ${test_sources})
