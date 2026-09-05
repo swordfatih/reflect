@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.30)
 
 project(reflect LANGUAGES CXX)
 
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
 option(REFLECT_BUILD_EXAMPLES "Build all example executables" OFF)
 option(REFLECT_BUILD_TESTS "Build the test executable" OFF)
 option(REFLECT_ENABLE_SQLITE "Build the SQLite backend" ON)
