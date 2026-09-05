@@ -129,3 +129,46 @@ jobs:
       - name: Test
         shell: msys2 {0}
         run: ctest --test-dir build --build-config Release --output-on-failure
+
+  test-macos-gcc16:
+    name: macOS GCC 16
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: brew install gcc libpq
+
+      - name: Toolchain versions
+        run: |
+          cmake --version
+          ninja --version
+          gcc-16 --version
+          g++-16 --version
+          "$(brew --prefix libpq)/bin/pg_config" --version
+
+          g++-16 -dumpfullversion -dumpversion | grep -E '^16\.'
+
+      - name: Configure
+        env:
+          CC: gcc-16
+          CXX: g++-16
+        run: |
+          LIBPQ_PREFIX="$(brew --prefix libpq)"
+          cmake -S . -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DREFLECT_BUILD_EXAMPLES=ON \
+            -DREFLECT_BUILD_TESTS=ON \
+            -DREFLECT_ENABLE_POSTGRESQL=ON \
+            -DPostgreSQL_INCLUDE_DIR="$LIBPQ_PREFIX/include" \
+            -DPostgreSQL_LIBRARY="$LIBPQ_PREFIX/lib/libpq.dylib"
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build --build-config Release --output-on-failure
